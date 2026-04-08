@@ -57,6 +57,55 @@
 
 优先级：账号级 > 全局；白名单 > 黑名单。
 
+### 4.1 `managementPermissions.actions` 动作清单
+
+`managementPermissions.actions.<action>` 的 `<action>` 可用值如下：
+
+| action | 说明 |
+|---|---|
+| `upload_group_file` | 上传群文件 |
+| `upload_private_file` | 上传私聊文件 |
+| `delete_msg` | 撤回消息 |
+| `set_msg_emoji_like` | 对消息添加/取消表情回应 |
+| `set_group_ban` | 群单人禁言 |
+| `set_group_whole_ban` | 全员禁言 |
+| `set_group_kick` | 群踢人 |
+| `set_group_admin` | 设置/取消群管理员 |
+| `set_group_card` | 设置群名片 |
+| `set_group_name` | 修改群名 |
+| `set_group_special_title` | 设置群头衔 |
+| `set_group_leave` | 机器人退群 |
+| `set_group_add_request` | 处理加群请求 |
+| `set_friend_add_request` | 处理加好友请求 |
+
+权限判定优先级：
+
+1. `actions.<action>.denyAgents`
+2. `actions.<action>.allowAgents`
+3. 全局/账号级 `denyAgents`
+4. 全局/账号级 `allowAgents`
+5. `defaultPolicy`
+
+示例（全局默认拒绝，仅允许指定 agent 执行单个动作）：
+
+```json
+{
+  "channels": {
+    "onebot": {
+      "managementPermissions": {
+        "defaultPolicy": "deny",
+        "actions": {
+          "set_group_card": {
+            "allowAgents": ["group-admin-agent"],
+            "denyAgents": []
+          }
+        }
+      }
+    }
+  }
+}
+```
+
 ## 5. 群聊拟人化汇总（`humanizeDigest`）
 
 路径：`channels.onebot.humanizeDigest`
