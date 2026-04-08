@@ -85,8 +85,17 @@ Windows PowerShell（示例 `1.1.7`）：
 
 - 私有包无权限用户会安装失败（预期行为）
 - 本节命令不面向公开用户
+- 脚本参数 `latest` 在私有通道中等价于 `dev` dist-tag（不会走公开 `latest`）
+- 私有脚本走 npm 直接安装链路，不读取本仓库 `manifest.json` 也不做其 SHA256 校验
 
-### 更新到私有测试版 latest
+### 私有更新前自检（建议）
+
+```bash
+npm whoami
+npm view @hmjbill/bbot-private dist-tags --json
+```
+
+### 更新到私有测试版（dev tag）
 
 macOS / Linux：
 
@@ -306,6 +315,8 @@ openclaw plugins install @hmjbill/bbot@<版本号>
 ```
 
 或用上面的“指定版本更新脚本”。
+
+说明：手动 `openclaw plugins install @hmjbill/bbot@<版本号>` 属于直接 npm 安装路径，不经过本仓库 `manifest.json` 的版本指针与哈希校验链路。
 
 ## 版本与发布规范（SOP，防漂移）
 
