@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param(
   [Parameter(Mandatory = $false)]
-  [string]$Version = "latest"
+  [string]$Version = "dev"
 )
 
 Set-StrictMode -Version Latest
@@ -110,8 +110,9 @@ function Sync-InstallMetadata {
 }
 
 function Install-Plugin {
-  if ($Version -eq "latest") {
-    & openclaw plugins install $Pkg
+  if ($Version -eq "latest" -or $Version -eq "dev") {
+    # OpenClaw 对预发布要求显式声明 tag 或版本，这里固定使用 dev tag
+    & openclaw plugins install "$Pkg@dev"
   } else {
     & openclaw plugins install "$Pkg@$Version"
   }
@@ -140,8 +141,8 @@ try {
     Remove-Item -LiteralPath $Ext -Recurse -Force -ErrorAction SilentlyContinue
   }
 
-  if ($Version -eq "latest") {
-    Step "安装私有最新版本 $Pkg"
+  if ($Version -eq "latest" -or $Version -eq "dev") {
+    Step "安装私有最新 dev 版本 $Pkg@dev"
   } else {
     Step "安装私有指定版本 $Pkg@$Version"
   }

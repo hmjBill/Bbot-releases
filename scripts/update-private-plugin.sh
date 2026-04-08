@@ -5,11 +5,11 @@ set -euo pipefail
 # - 备份 openclaw.json
 # - 停止网关
 # - 清理旧插件目录（不删除配置）
-# - 安装私有包指定版本或 latest
+# - 安装私有包指定版本或 dev（默认）
 # - 启动网关并输出状态
 
 PKG="${BBOT_PRIVATE_PKG:-@hmjbill/bbot-private}"
-VER="${1:-latest}"
+VER="${1:-dev}"
 OPENCLAW_HOME="${HOME}/.openclaw"
 CFG="${OPENCLAW_HOME}/openclaw.json"
 EXT="${OPENCLAW_HOME}/extensions/bbot"
@@ -123,15 +123,16 @@ step "清理旧插件目录（无交互） -> ${EXT}"
 rm -rf "${EXT}"
 
 install_plugin() {
-  if [ "${VER}" = "latest" ]; then
-    openclaw plugins install "${PKG}"
+  if [ "${VER}" = "latest" ] || [ "${VER}" = "dev" ]; then
+    # OpenClaw 对预发布要求显式声明 tag 或版本，这里固定使用 dev tag
+    openclaw plugins install "${PKG}@dev"
   else
     openclaw plugins install "${PKG}@${VER}"
   fi
 }
 
-if [ "${VER}" = "latest" ]; then
-  step "安装私有最新版本 ${PKG}"
+if [ "${VER}" = "latest" ] || [ "${VER}" = "dev" ]; then
+  step "安装私有最新 dev 版本 ${PKG}@dev"
 else
   step "安装私有指定版本 ${PKG}@${VER}"
 fi
