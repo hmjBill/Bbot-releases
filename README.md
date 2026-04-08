@@ -307,70 +307,68 @@ openclaw plugins install @hmjbill/bbot@<版本号>
 
 或用上面的“指定版本更新脚本”。
 
-## 版本与发布规范（SOP）
+## 版本与发布规范（SOP，防漂移）
 
-本仓库作为公开发布通道，建议只包含：
+本项目采用“闭源实现仓库 + 本公开发布仓库”的双仓库模式。  
+为防止版本漂移，**以闭源仓库发布结果为唯一事实源**，本仓库只负责公开分发层同步。
 
-- 安装/更新脚本
-- 用户文档（本 README）
-- 版本清单（`manifest.json`）
-- 发布说明（Release Notes）
+### 1) 仓库职责（固定）
 
-### 1) 版本策略
+- 闭源仓库：源码、内部实现、构建与发布动作
+- 本仓库（`Bbot-releases`）：安装/更新脚本、`manifest.json`、公开文档
+- 禁止将闭源实现细节、内网信息、敏感路径/密钥提交到本仓库
 
-- 使用 SemVer：`MAJOR.MINOR.PATCH`
-- `feat` 且向后兼容：升级 `MINOR`
-- `fix`：升级 `PATCH`
-- 存在破坏性变更：升级 `MAJOR`，并在发布说明标注 `BREAKING`
+### 2) 发布前置（在闭源仓库完成）
 
-### 2) 发布前检查
+闭源仓库发布前必须满足：
 
-发布新版本前，至少确认：
+1. 版本三处一致：`package.json` / `package-lock.json` / `openclaw.plugin.json`
+2. 执行通过：`npm run build`
+3. 预览通过：`npm run pack:preview:npm-readme`
+4. 正式发布仅使用：`npm run publish:npm`（禁止直接 `npm publish`）
 
-1. npm 已发布目标版本（`@hmjbill/bbot@x.y.z`）
-2. tarball URL 可下载
-3. tarball 的 `SHA256` 已正确计算
-4. Linux/macOS 与 PowerShell 更新命令都可执行
-5. `openclaw plugins install @hmjbill/bbot@x.y.z` 可安装成功
+### 3) 双 npm 通道约束（统一规则）
 
-### 3) manifest 更新规则
+- 正式公开通道：`@hmjbill/bbot`
+- 私有调试通道：`@hmjbill/bbot-private`
+- 正式通道仅允许稳定版本：`X.Y.Z`，dist-tag 使用 `latest`
+- 私有通道仅允许预发布版本：`X.Y.Z-dev.N` / `X.Y.Z-rc.N` / `X.Y.Z-exp.N`
+- 私有开发/候选 tag 分别使用 `dev` / `rc`，不得覆盖正式语义
 
-每次发布新版本时，更新仓库根目录 `manifest.json`：
+### 4) 发布后同步（本仓库强制）
 
-1. 填写 `latest` 为目标版本号
-2. 新增 `versions.<version>` 节点（建议只新增，不修改历史条目）
-3. `tarballUrl` 指向 npm 对应 tarball
-4. `sha256` 写入 tarball 的 SHA256（小写）
-5. `publishedAt` 使用 UTC 时间（ISO 8601）
+闭源仓库发布成功后，本仓库必须同步以下文件：
 
-更新脚本仅在“版本存在且哈希匹配”时安装。
+1. `README.md`
+2. `docs/config-reference.md`
+3. `manifest.json`
 
-### 4) 回滚流程
+同步要求：
 
-发现新版本异常时：
+1. `manifest.json.latest` 指向新版本
+2. `manifest.json.versions.<version>` 新增 tarball、sha256、发布时间（UTC ISO 8601）
+3. 历史版本条目不回写、不覆盖（仅新增）
+4. 所有脚本下载链接必须指向本仓库（`Bbot-releases`）
 
-1. 将 `manifest.json` 的 `latest` 指回稳定版本
-2. 提交并推送本仓库
-3. 在 Release Notes 标注“已回滚”与建议版本
+### 5) 发布后验收（强制执行并留痕）
 
-如需强制指定版本，用户可执行：
+每次发布后至少执行并记录：
 
 ```bash
-openclaw plugins install @hmjbill/bbot@<稳定版本>
+npm view @hmjbill/bbot version
+npm view @hmjbill/bbot readme
+npm view <old-pkg>@<version> deprecated
 ```
 
-### 5) 安全要求
+验收目标：
 
-- 不安装未在 `manifest.json` 声明的版本
-- 不安装哈希不匹配的 tarball
-- 出现哈希不一致时，暂停发布并重新核验构建产物
-- 禁止在脚本中写死密钥或敏感配置
+1. 线上版本与目标版本一致
+2. npm README 为公开文档，不包含闭源开发信息
+3. 旧包迁移提示（deprecated）已生效
 
-### 6) 发布说明模板
+### 6) 异常与回滚
 
-每次发布建议包含以下小节：
-
-- `新增`：用户可感知的新能力
-- `修复`：已解决的问题
-- `兼容性`：是否影响旧配置
-- `升级建议`：是否建议立即升级或观察
+- 若新版本异常：将 `manifest.json.latest` 回指稳定版本并立即推送
+- 若发布被 `EOTP` 中断：走手动命令补发并记录
+- 若 README/元数据发布错误：立刻发布新 patch 修正
+- 若旧包无法下线：至少完成 `deprecated` 提示并在文档给出迁移路径
