@@ -10,7 +10,7 @@ set -euo pipefail
 
 PKG="@hmjbill/bbot"
 VER="${1:-latest}"
-SCRIPT_REPO_RAW="https://raw.githubusercontent.com/hmjBill/Bbot_Script/main"
+SCRIPT_REPO_RAW="https://raw.githubusercontent.com/hmjBill/Bbot-releases/main"
 MANIFEST_URL="${SCRIPT_REPO_RAW}/manifest.json"
 OPENCLAW_HOME="${HOME}/.openclaw"
 CFG="${OPENCLAW_HOME}/openclaw.json"

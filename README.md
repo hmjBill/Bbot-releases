@@ -112,6 +112,128 @@ openclaw gateway start
 }
 ```
 
+## 使用配置指南
+
+### 快速跑通（建议顺序）
+
+1. 安装插件：`openclaw plugins install @hmjbill/bbot`
+2. 执行初始化：`openclaw onebot setup`
+3. 重启网关：`openclaw gateway restart`
+4. 在 QQ 私聊发送消息，或在群聊中 `@` 机器人测试
+
+### 常用配置项（推荐先调这些）
+
+| 配置项 | 作用 | 建议值 |
+|---|---|---|
+| `channels.onebot.requireMention` | 群聊是否必须 @ 才触发 | 群聊噪声大时 `true` |
+| `channels.onebot.triggerKeywords` | 群聊关键字触发列表 | 如 `["AI","助手","帮我问"]` |
+| `channels.onebot.triggerMode` | 关键字匹配方式 | `contains` |
+| `channels.onebot.longMessageMode` | 长消息发送模式 | `normal` / `og_image` / `forward` |
+| `channels.onebot.longMessageThreshold` | 超过该长度走长消息策略 | `300` |
+| `channels.onebot.thinkingEmojiEnabled` | 是否显示“思考中”表情 | 不喜欢可设 `false` |
+
+### 关键字触发示例（无需 @）
+
+```json
+{
+  "channels": {
+    "onebot": {
+      "requireMention": false,
+      "triggerKeywords": ["AI", "助手", "帮我问"],
+      "triggerMode": "contains"
+    }
+  }
+}
+```
+
+### 长消息模式示例
+
+`normal`（推荐默认）：
+
+```json
+{
+  "channels": {
+    "onebot": {
+      "longMessageMode": "normal",
+      "normalModeFlushIntervalMs": 1200,
+      "normalModeFlushChars": 160
+    }
+  }
+}
+```
+
+`og_image`（超长内容更易读）：
+
+```json
+{
+  "channels": {
+    "onebot": {
+      "longMessageMode": "og_image",
+      "longMessageThreshold": 300,
+      "ogImageRenderTheme": "dust"
+    }
+  }
+}
+```
+
+### 多账号路由（按 `accountId`）
+
+当你接入多个 OneBot 账号时，可以在 `bindings` 中按 `accountId` 路由到不同 agent：
+
+```json
+{
+  "bindings": [
+    {
+      "agentId": "xiaob",
+      "match": { "channel": "onebot", "accountId": "xiaob" }
+    },
+    {
+      "agentId": "xiaoxiaob",
+      "match": { "channel": "onebot", "accountId": "xiaoxiaob" }
+    }
+  ]
+}
+```
+
+### 群聊拟人化定时回复（可选高级）
+
+如需“定时看群聊并拟人化短回复”，可开启 `humanizeDigest`：
+
+```json
+{
+  "channels": {
+    "onebot": {
+      "humanizeDigest": {
+        "enabled": true,
+        "replyMode": "llm",
+        "intervalSecMin": 180,
+        "intervalSecMax": 420,
+        "windowMinutes": 6,
+        "minNewMessages": 6,
+        "targetGroups": [1046693162]
+      }
+    }
+  }
+}
+```
+
+建议先小流量群测试，再逐步放量。
+
+### 白名单与黑名单（群控常用）
+
+```json
+{
+  "channels": {
+    "onebot": {
+      "whitelistUserIds": [1193466151],
+      "blacklistUserIds": [123456789]
+    }
+  }
+}
+```
+
+说明：白名单优先级高于黑名单；账号级配置优先于全局配置。
+
 ## 常见问题
 
 ### 1) `openclaw` 命令不存在

@@ -8,7 +8,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
 $Pkg = "@hmjbill/bbot"
-$ScriptRepoRaw = "https://raw.githubusercontent.com/hmjBill/Bbot_Script/main"
+$ScriptRepoRaw = "https://raw.githubusercontent.com/hmjBill/Bbot-releases/main"
 $ManifestUrl = "$ScriptRepoRaw/manifest.json"
 $OpenClawHome = Join-Path $HOME ".openclaw"
 $Cfg = Join-Path $OpenClawHome "openclaw.json"
