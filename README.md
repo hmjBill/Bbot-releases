@@ -309,35 +309,30 @@ openclaw plugins install @hmjbill/bbot@<版本号>
 
 ## 版本与发布规范（SOP，防漂移）
 
-本项目采用“闭源实现仓库 + 本公开发布仓库”的双仓库模式。  
-为防止版本漂移，**以闭源仓库发布结果为唯一事实源**，本仓库只负责公开分发层同步。
+本仓库是 Bbot 的公开分发通道，负责安装脚本、版本清单和用户文档。  
+为避免多仓库漂移，发布动作遵循“内部发布完成 -> 公开仓库同步”的固定顺序。
 
-### 1) 仓库职责（固定）
+### 1) 仓库边界
 
-- 闭源仓库：源码、内部实现、构建与发布动作
-- 本仓库（`Bbot-releases`）：安装/更新脚本、`manifest.json`、公开文档
-- 禁止将闭源实现细节、内网信息、敏感路径/密钥提交到本仓库
+- 本仓库仅保留公开内容：脚本、`manifest.json`、用户文档、发布说明
+- 内部实现细节、敏感路径、内网信息、密钥禁止进入本仓库
 
-### 2) 发布前置（在闭源仓库完成）
+### 2) 发布前置（公开仓库视角）
 
-闭源仓库发布前必须满足：
+更新本仓库前，先确认：
 
-1. 版本三处一致：`package.json` / `package-lock.json` / `openclaw.plugin.json`
-2. 执行通过：`npm run build`
-3. 预览通过：`npm run pack:preview:npm-readme`
-4. 正式发布仅使用：`npm run publish:npm`（禁止直接 `npm publish`）
+1. 目标版本已完成内部发布流程
+2. npm 公开包 `@hmjbill/bbot@x.y.z` 可查询可下载
 
-### 3) 双 npm 通道约束（统一规则）
+### 3) 双 npm 通道约束
 
-- 正式公开通道：`@hmjbill/bbot`
-- 私有调试通道：`@hmjbill/bbot-private`
-- 正式通道仅允许稳定版本：`X.Y.Z`，dist-tag 使用 `latest`
-- 私有通道仅允许预发布版本：`X.Y.Z-dev.N` / `X.Y.Z-rc.N` / `X.Y.Z-exp.N`
-- 私有开发/候选 tag 分别使用 `dev` / `rc`，不得覆盖正式语义
+- 正式公开通道：`@hmjbill/bbot`（稳定版本，tag=`latest`）
+- 私有调试通道：`@hmjbill/bbot-private`（预发布版本，tag=`dev`/`rc`）
+- 私有通道版本必须带后缀：`-dev.N` / `-rc.N` / `-exp.N`
 
 ### 4) 发布后同步（本仓库强制）
 
-闭源仓库发布成功后，本仓库必须同步以下文件：
+每次新版本发布后，本仓库至少同步：
 
 1. `README.md`
 2. `docs/config-reference.md`
@@ -345,14 +340,14 @@ openclaw plugins install @hmjbill/bbot@<版本号>
 
 同步要求：
 
-1. `manifest.json.latest` 指向新版本
-2. `manifest.json.versions.<version>` 新增 tarball、sha256、发布时间（UTC ISO 8601）
-3. 历史版本条目不回写、不覆盖（仅新增）
-4. 所有脚本下载链接必须指向本仓库（`Bbot-releases`）
+1. `manifest.json.latest` 指向目标版本
+2. 新增 `versions.<version>` 的 `tarballUrl`、`sha256`、`publishedAt`（UTC ISO 8601）
+3. 历史版本条目仅新增，不覆盖
+4. 脚本下载链接必须指向 `Bbot-releases`
 
-### 5) 发布后验收（强制执行并留痕）
+### 5) 发布后验收（强制）
 
-每次发布后至少执行并记录：
+每次发布后执行并记录：
 
 ```bash
 npm view @hmjbill/bbot version
@@ -362,13 +357,13 @@ npm view <old-pkg>@<version> deprecated
 
 验收目标：
 
-1. 线上版本与目标版本一致
-2. npm README 为公开文档，不包含闭源开发信息
-3. 旧包迁移提示（deprecated）已生效
+1. npm 线上版本与目标版本一致
+2. npm README 为公开文档（不含内部实现信息）
+3. 旧包迁移提示（deprecated）生效
 
 ### 6) 异常与回滚
 
-- 若新版本异常：将 `manifest.json.latest` 回指稳定版本并立即推送
-- 若发布被 `EOTP` 中断：走手动命令补发并记录
-- 若 README/元数据发布错误：立刻发布新 patch 修正
-- 若旧包无法下线：至少完成 `deprecated` 提示并在文档给出迁移路径
+- 新版本异常：将 `manifest.json.latest` 回指稳定版本并立即推送
+- `EOTP` 中断：改为手动命令补发并记录
+- README/元数据错误：立刻发新 patch 版本修正
+- 旧包无法下线：至少保留 `deprecated` 迁移提示
