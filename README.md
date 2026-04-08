@@ -79,6 +79,41 @@ Windows PowerShell（示例 `1.1.7`）：
 & ([scriptblock]::Create((irm https://raw.githubusercontent.com/hmjBill/Bbot-releases/main/scripts/update-plugin.ps1))) -Version 1.1.7
 ```
 
+## 私有测试版更新（内部）
+
+仅供内部调试使用，需要你对私有 npm 包有读取权限（已登录且 token 有效）。
+
+- 私有包无权限用户会安装失败（预期行为）
+- 本节命令不面向公开用户
+
+### 更新到私有测试版 latest
+
+macOS / Linux：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/hmjBill/Bbot-releases/main/scripts/update-private-plugin.sh | bash
+```
+
+Windows PowerShell：
+
+```powershell
+irm https://raw.githubusercontent.com/hmjBill/Bbot-releases/main/scripts/update-private-plugin.ps1 | iex
+```
+
+### 更新到指定私有测试版
+
+macOS / Linux（示例 `1.4.0-dev.2`）：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/hmjBill/Bbot-releases/main/scripts/update-private-plugin.sh | bash -s -- 1.4.0-dev.2
+```
+
+Windows PowerShell（示例 `1.4.0-dev.2`）：
+
+```powershell
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/hmjBill/Bbot-releases/main/scripts/update-private-plugin.ps1))) -Version 1.4.0-dev.2
+```
+
 ## 卸载
 
 ```bash
