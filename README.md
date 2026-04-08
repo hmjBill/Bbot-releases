@@ -30,13 +30,13 @@ openclaw onebot setup
 macOS / Linux：
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/hmjBill/Bbot_Script/main/scripts/update-plugin.sh | bash
+curl -fsSL https://raw.githubusercontent.com/hmjBill/Bbot-releases/main/scripts/update-plugin.sh | bash
 ```
 
 Windows PowerShell：
 
 ```powershell
-irm https://raw.githubusercontent.com/hmjBill/Bbot_Script/main/scripts/update-plugin.ps1 | iex
+irm https://raw.githubusercontent.com/hmjBill/Bbot-releases/main/scripts/update-plugin.ps1 | iex
 ```
 
 ## 更新插件
@@ -56,13 +56,13 @@ irm https://raw.githubusercontent.com/hmjBill/Bbot_Script/main/scripts/update-pl
 macOS / Linux：
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/hmjBill/Bbot_Script/main/scripts/update-plugin.sh | bash
+curl -fsSL https://raw.githubusercontent.com/hmjBill/Bbot-releases/main/scripts/update-plugin.sh | bash
 ```
 
 Windows PowerShell：
 
 ```powershell
-irm https://raw.githubusercontent.com/hmjBill/Bbot_Script/main/scripts/update-plugin.ps1 | iex
+irm https://raw.githubusercontent.com/hmjBill/Bbot-releases/main/scripts/update-plugin.ps1 | iex
 ```
 
 ### 更新到指定版本
@@ -70,13 +70,13 @@ irm https://raw.githubusercontent.com/hmjBill/Bbot_Script/main/scripts/update-pl
 macOS / Linux（示例 `1.1.7`）：
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/hmjBill/Bbot_Script/main/scripts/update-plugin.sh | bash -s -- 1.1.7
+curl -fsSL https://raw.githubusercontent.com/hmjBill/Bbot-releases/main/scripts/update-plugin.sh | bash -s -- 1.1.7
 ```
 
 Windows PowerShell（示例 `1.1.7`）：
 
 ```powershell
-& ([scriptblock]::Create((irm https://raw.githubusercontent.com/hmjBill/Bbot_Script/main/scripts/update-plugin.ps1))) -Version 1.1.7
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/hmjBill/Bbot-releases/main/scripts/update-plugin.ps1))) -Version 1.1.7
 ```
 
 ## 卸载
@@ -148,24 +148,70 @@ openclaw plugins install @hmjbill/bbot@<版本号>
 
 或用上面的“指定版本更新脚本”。
 
-## 版本与发布建议
+## 版本与发布规范（SOP）
 
-建议仅将以下内容放在此公开仓库：
+本仓库作为公开发布通道，建议只包含：
 
 - 安装/更新脚本
 - 用户文档（本 README）
 - 版本清单（`manifest.json`）
 - 发布说明（Release Notes）
 
-这样既能保证用户可安装更新，也能保持核心实现闭源。
+### 1) 版本策略
 
-## 维护者发布步骤（manifest）
+- 使用 SemVer：`MAJOR.MINOR.PATCH`
+- `feat` 且向后兼容：升级 `MINOR`
+- `fix`：升级 `PATCH`
+- 存在破坏性变更：升级 `MAJOR`，并在发布说明标注 `BREAKING`
 
-每次发布新版本时，请同步更新仓库根目录 `manifest.json`：
+### 2) 发布前检查
 
-1. 填写 `latest` 为新版本号
-2. 在 `versions.<version>.tarballUrl` 写入 npm tarball 地址
-3. 在 `versions.<version>.sha256` 写入 tarball 的 SHA256
-4. 提交并推送脚本仓库
+发布新版本前，至少确认：
 
-只有当 `manifest.json` 中存在该版本且哈希匹配，更新脚本才会安装。
+1. npm 已发布目标版本（`@hmjbill/bbot@x.y.z`）
+2. tarball URL 可下载
+3. tarball 的 `SHA256` 已正确计算
+4. Linux/macOS 与 PowerShell 更新命令都可执行
+5. `openclaw plugins install @hmjbill/bbot@x.y.z` 可安装成功
+
+### 3) manifest 更新规则
+
+每次发布新版本时，更新仓库根目录 `manifest.json`：
+
+1. 填写 `latest` 为目标版本号
+2. 新增 `versions.<version>` 节点（建议只新增，不修改历史条目）
+3. `tarballUrl` 指向 npm 对应 tarball
+4. `sha256` 写入 tarball 的 SHA256（小写）
+5. `publishedAt` 使用 UTC 时间（ISO 8601）
+
+更新脚本仅在“版本存在且哈希匹配”时安装。
+
+### 4) 回滚流程
+
+发现新版本异常时：
+
+1. 将 `manifest.json` 的 `latest` 指回稳定版本
+2. 提交并推送本仓库
+3. 在 Release Notes 标注“已回滚”与建议版本
+
+如需强制指定版本，用户可执行：
+
+```bash
+openclaw plugins install @hmjbill/bbot@<稳定版本>
+```
+
+### 5) 安全要求
+
+- 不安装未在 `manifest.json` 声明的版本
+- 不安装哈希不匹配的 tarball
+- 出现哈希不一致时，暂停发布并重新核验构建产物
+- 禁止在脚本中写死密钥或敏感配置
+
+### 6) 发布说明模板
+
+每次发布建议包含以下小节：
+
+- `新增`：用户可感知的新能力
+- `修复`：已解决的问题
+- `兼容性`：是否影响旧配置
+- `升级建议`：是否建议立即升级或观察
