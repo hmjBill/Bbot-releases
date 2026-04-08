@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "packageName": "@hmjbill/bbot",
+  "latest": "1.2.3",
+  "versions": {
+    "1.2.3": {
+      "tarballUrl": "https://registry.npmjs.org/@hmjbill/bbot/-/bbot-1.2.3.tgz",
+      "sha256": "2d858187bdbd07ed0b82693d74636d96e708dd96683bc1354aa8261076f49589",
+      "publishedAt": "2026-04-08T00:00:00Z"
+    }
+  }
+}
