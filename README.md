@@ -114,6 +114,8 @@ openclaw gateway start
 
 ## 使用配置指南
 
+完整参数手册见：[docs/config-reference.md](docs/config-reference.md)
+
 ### 快速跑通（建议顺序）
 
 1. 安装插件：`openclaw plugins install @hmjbill/bbot`
