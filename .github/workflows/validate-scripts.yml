@@ -1,0 +1,92 @@
+# 「脚本语法检查」PR 到 main 时校验安装脚本语法
+name: 脚本语法检查
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'scripts/**'
+
+permissions:
+  contents: read
+
+jobs:
+  shellcheck:
+    name: Shell 脚本校验
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 安装 ShellCheck
+        run: sudo apt-get update && sudo apt-get install -y shellcheck
+
+      - name: ShellCheck 校验
+        run: |
+          FAILED=0
+          for f in scripts/*.sh; do
+            [ -f "$f" ] || continue
+            echo "检查: $f"
+            if ! shellcheck -s bash -S warning "$f"; then
+              FAILED=1
+            fi
+          done
+          if [ "$FAILED" -eq 1 ]; then
+            echo "::error::ShellCheck 发现问题，请修复后再合并"
+            exit 1
+          fi
+          echo "✅ 所有 Shell 脚本通过 ShellCheck"
+
+      - name: 脚本中版本号一致性
+        run: |
+          # 检查公开更新脚本中没有硬编码的旧版本号
+          # manifest.json 的 latest 才是唯一版本来源
+          echo "检查脚本中是否存在硬编码版本号..."
+          for f in scripts/*.sh scripts/*.ps1; do
+            [ -f "$f" ] || continue
+            MATCHES=$(grep -nP '(?:install|install.*@hmjbill/bbot@|version.*=.*"?\d+\.\d+\.\d+)' "$f" 2>/dev/null || true)
+            if [ -n "$MATCHES" ]; then
+              echo "::warning::${f} 中可能存在硬编码版本号:"
+              echo "$MATCHES"
+            fi
+          done
+          echo "✅ 版本号检查完成"
+
+  ps-script:
+    name: PowerShell 脚本校验
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 安装 PowerShell
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y wget apt-transport-https software-properties-common
+          . /etc/os-release
+          wget -q "https://packages.microsoft.com/config/ubuntu/$VERSION_ID/packages-microsoft-prod.deb"
+          sudo dpkg -i packages-microsoft-prod.deb
+          sudo apt-get update
+          sudo apt-get install -y powershell
+
+      - name: PowerShell 语法检查
+        run: |
+          FAILED=0
+          for f in scripts/*.ps1; do
+            [ -f "$f" ] || continue
+            echo "检查: $f"
+            if ! pwsh -NoProfile -Command "
+              `\$errors = @()
+              [System.Management.Automation.Language.Parser]::ParseFile('$f', [ref]`\$null, [ref]`\$errors) | Out-Null
+              if (`\$errors.Count -gt 0) {
+                `\$errors | ForEach-Object { Write-Host '::error::' + `\$_.Message }
+                exit 1
+              }
+              Write-Host '  ✅ 语法正确'
+            "; then
+              FAILED=1
+            fi
+          done
+          if [ "$FAILED" -eq 1 ]; then
+            echo "::error::PowerShell 脚本语法检查发现问题"
+            exit 1
+          fi
+          echo "✅ 所有 PowerShell 脚本通过语法检查"
