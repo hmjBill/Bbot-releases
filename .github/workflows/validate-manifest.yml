@@ -1,0 +1,130 @@
+# 「清单校验」PR 到 main 时校验 manifest.json 完整性与 sha256 一致性
+name: 清单校验
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'manifest.json'
+      - 'docs/**'
+      - 'scripts/**'
+      - 'README.md'
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: manifest.json 校验
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: JSON 语法校验
+        run: |
+          node -e 'JSON.parse(require("fs").readFileSync("manifest.json","utf8")); console.log("✅ JSON 语法正确")'
+
+      - name: 结构校验
+        run: |
+          node -e '
+            const m = JSON.parse(require("fs").readFileSync("manifest.json","utf8"));
+            const errs = [];
+
+            if (!m.schemaVersion) errs.push("缺少 schemaVersion");
+            if (!m.packageName) errs.push("缺少 packageName");
+            if (!m.latest) errs.push("缺少 latest");
+            if (!m.versions || typeof m.versions !== "object") errs.push("缺少 versions 对象");
+
+            // latest 必须在 versions 中存在
+            if (m.latest && m.versions && !m.versions[m.latest]) {
+              errs.push(`latest (${m.latest}) 不在 versions 中`);
+            }
+
+            // 每个版本条目必须有完整字段
+            if (m.versions) {
+              for (const [ver, entry] of Object.entries(m.versions)) {
+                if (!entry.tarballUrl) errs.push(`versions.${ver} 缺少 tarballUrl`);
+                if (!entry.sha256) errs.push(`versions.${ver} 缺少 sha256`);
+                if (!entry.publishedAt) errs.push(`versions.${ver} 缺少 publishedAt`);
+
+                // tarballUrl 格式校验
+                if (entry.tarballUrl && !entry.tarballUrl.startsWith("https://registry.npmjs.org/")) {
+                  errs.push(`versions.${ver}.tarballUrl 格式错误: ${entry.tarballUrl}`);
+                }
+              }
+            }
+
+            if (errs.length > 0) {
+              errs.forEach(e => console.log(`::error::${e}`));
+              process.exit(1);
+            }
+            console.log("✅ manifest.json 结构校验通过");
+          '
+
+      - name: SHA256 远端校验
+        run: |
+          node -e '
+            const https = require("https");
+            const crypto = require("crypto");
+            const m = JSON.parse(require("fs").readFileSync("manifest.json","utf8"));
+
+            // 只校验 latest 版本的 sha256
+            const ver = m.latest;
+            const entry = m.versions[ver];
+            if (!entry) { console.log("⏭️ 无 latest 版本条目，跳过远端校验"); return; }
+
+            const url = entry.tarballUrl;
+            console.log(`校验 ${ver} 的 tarball SHA256...`);
+
+            https.get(url, {timeout: 30000}, (res) => {
+              if (res.statusCode !== 200) {
+                console.log(`::warning::tarball 下载失败 (HTTP ${res.statusCode})，跳过远端校验`);
+                res.resume();
+                return;
+              }
+              const hash = crypto.createHash("sha256");
+              res.on("data", d => hash.update(d));
+              res.on("end", () => {
+                const actual = hash.digest("hex");
+                if (actual !== entry.sha256) {
+                  console.log(`::error::SHA256 不匹配! manifest=${entry.sha256} actual=${actual}`);
+                  process.exit(1);
+                }
+                console.log(`✅ SHA256 校验通过: ${actual}`);
+              });
+            }).on("error", e => {
+              console.log(`::warning::远端校验失败: ${e.message}，跳过`);
+            });
+          '
+
+      - name: 历史版本完整性（仅增不改）
+        run: |
+          # 获取 main 分支的 manifest.json 作为基准
+          git fetch origin main --depth=1 2>/dev/null || true
+          if git show origin/main:manifest.json > /tmp/old-manifest.json 2>/dev/null; then
+            node -e '
+              const old = JSON.parse(require("fs").readFileSync("/tmp/old-manifest.json","utf8"));
+              const cur = JSON.parse(require("fs").readFileSync("manifest.json","utf8"));
+              const errs = [];
+
+              for (const [ver, entry] of Object.entries(old.versions || {})) {
+                if (!cur.versions[ver]) {
+                  errs.push(`历史版本 ${ver} 被删除`);
+                } else if (JSON.stringify(cur.versions[ver]) !== JSON.stringify(entry)) {
+                  errs.push(`历史版本 ${ver} 被覆盖`);
+                }
+              }
+
+              if (errs.length > 0) {
+                errs.forEach(e => console.log(`::error::${e}`));
+                process.exit(1);
+              }
+              console.log("✅ 历史版本条目完整（仅增不改）");
+            '
+          else
+            echo "⏭️ 无 main 分支基准，跳过历史校验（首次创建或 fork）"
+          fi
