@@ -1,0 +1,109 @@
+# 「发布同步」Bbot 公开发布完成后自动更新 manifest.json 并创建 PR
+name: 发布同步
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: '要同步的版本号（如 1.4.1）'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  sync:
+    name: 同步 manifest 与文档
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: 校验版本号格式
+        run: |
+          VERSION="${{ inputs.version }}"
+          if ! echo "$VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::版本号格式错误: $VERSION（期望 X.Y.Z）"
+            exit 1
+          fi
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+
+      - name: 从 npm registry 下载 tarball
+        run: |
+          TARBALL_URL="https://registry.npmjs.org/@hmjbill/bbot/-/bbot-${VERSION}.tgz"
+          echo "下载: $TARBALL_URL"
+          HTTP_CODE=$(curl -sSL -o "bbot-${VERSION}.tgz" -w "%{http_code}" "$TARBALL_URL")
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "::error::下载 tarball 失败 (HTTP $HTTP_CODE)"
+            exit 1
+          fi
+          echo "✅ tarball 下载成功"
+
+      - name: 计算 SHA256
+        id: sha
+        run: |
+          SHA=$(sha256sum "bbot-${VERSION}.tgz" | awk '{print $1}')
+          echo "sha256=$SHA" >> "$GITHUB_OUTPUT"
+          echo "✅ SHA256: $SHA"
+
+      - name: 更新 manifest.json
+        run: |
+          node -e '
+            const fs = require("fs");
+            const manifest = JSON.parse(fs.readFileSync("manifest.json", "utf8"));
+
+            const version = process.env.VERSION;
+            const sha256 = process.env.SHA256;
+            const now = new Date().toISOString();
+
+            // 更新 latest 指针
+            manifest.latest = version;
+
+            // 新增版本条目（仅新增，不覆盖已有）
+            if (manifest.versions[version]) {
+              console.log(`::warning::版本 ${version} 已存在于 manifest.json，跳过覆盖`);
+            } else {
+              manifest.versions[version] = {
+                tarballUrl: `https://registry.npmjs.org/@hmjbill/bbot/-/bbot-${version}.tgz`,
+                sha256: sha256,
+                publishedAt: now
+              };
+              console.log(`✅ 新增版本条目: ${version}`);
+            }
+
+            fs.writeFileSync("manifest.json", JSON.stringify(manifest, null, 2) + "\n");
+            console.log("✅ manifest.json 已更新");
+          '
+        env:
+          VERSION: ${{ env.VERSION }}
+          SHA256: ${{ steps.sha.outputs.sha256 }}
+
+      - name: 创建同步 PR
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: sync/v${{ env.VERSION }}
+          title: "sync: 更新 manifest.json 至 v${{ env.VERSION }}"
+          body: |
+            ## 自动发布同步
+
+            由 Bbot 公开发布 workflow 自动触发。
+
+            ### 变更内容
+            - `manifest.json` latest → `${{ env.VERSION }}`
+            - 新增版本条目 `${{ env.VERSION }}`
+              - SHA256: `${{ steps.sha.outputs.sha256 }}`
+              - Tarball: `https://registry.npmjs.org/@hmjbill/bbot/-/bbot-${{ env.VERSION }}.tgz`
+
+            ### ⚠️ 合并前检查
+            - [ ] `manifest.json` 格式正确
+            - [ ] 历史版本条目未被覆盖
+            - [ ] 如有 README / config-reference 变更，已手动同步
+          commit-message: "sync: 更新 manifest.json 至 v${{ env.VERSION }}"
+          delete-branch: true
+          labels: sync
