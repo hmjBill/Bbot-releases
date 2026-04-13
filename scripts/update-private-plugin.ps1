@@ -16,6 +16,16 @@ $Ts = Get-Date -Format "yyyyMMdd-HHmmss"
 $Bak = Join-Path $OpenClawHome "openclaw.json.bak.$Ts"
 $TmpOnebot = Join-Path $OpenClawHome ".onebot-channel.tmp.$Ts.json"
 
+# ── 自动检测 CLI 命令（支持 BClaw 和 OpenClaw） ──
+$Cli = $null
+if (Get-Command bclaw -ErrorAction SilentlyContinue) {
+  $Cli = "bclaw"
+} elseif (Get-Command openclaw -ErrorAction SilentlyContinue) {
+  $Cli = "openclaw"
+} else {
+  throw "未找到 bclaw 或 openclaw 命令，请先安装 BClaw 或 OpenClaw。"
+}
+
 function Step([string]$Message) {
   Write-Host "[onebot-private-update] $Message"
 }
@@ -65,7 +75,7 @@ function Restore-OnebotConfig {
   if ($null -eq $cfgObj.plugins) {
     $cfgObj | Add-Member -NotePropertyName "plugins" -NotePropertyValue ([pscustomobject]@{})
   }
-  if ($null -eq $cfgObj.plugins.allow) {
+  if ($cfgObj.plugins.allow -isnot [System.Array]) {
     $cfgObj.plugins | Add-Member -NotePropertyName "allow" -NotePropertyValue @("bbot") -Force
   } else {
     $allow = @($cfgObj.plugins.allow)
@@ -111,17 +121,14 @@ function Sync-InstallMetadata {
 
 function Install-Plugin {
   if ($Version -eq "latest" -or $Version -eq "dev") {
-    # OpenClaw 对预发布要求显式声明 tag 或版本，这里固定使用 dev tag
-    & openclaw plugins install "$Pkg@dev"
+    & $Cli plugins install "$Pkg@dev"
   } else {
-    & openclaw plugins install "$Pkg@$Version"
+    & $Cli plugins install "$Pkg@$Version"
   }
 }
 
 try {
-  if (-not (Get-Command openclaw -ErrorAction SilentlyContinue)) {
-    throw "openclaw 命令不存在，请先安装 OpenClaw。"
-  }
+  Step "使用 CLI: $Cli"
 
   if (Test-Path -LiteralPath $Cfg) {
     Step "备份配置 -> $Bak"
@@ -132,6 +139,7 @@ try {
 
   Step "停止网关"
   Get-Process -Name "openclaw-gateway" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+  Get-Process -Name "bclaw-gateway" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
 
   Step "临时清理冲突配置（安装后自动恢复）"
   Sanitize-ConfigForInstall
@@ -151,7 +159,7 @@ try {
     Install-Plugin
   } catch {
     Step "安装失败，尝试自动修复配置并重试"
-    & openclaw doctor --fix | Out-Null
+    & $Cli doctor --fix | Out-Null
     Install-Plugin
   }
 
@@ -162,10 +170,10 @@ try {
   Sync-InstallMetadata
 
   Step "启动网关"
-  & openclaw gateway start
+  & $Cli gateway start
 
   Step "当前状态"
-  & openclaw status
+  & $Cli status
 
   Step "私有更新完成（配置未改动，备份: $Bak）"
 } finally {
