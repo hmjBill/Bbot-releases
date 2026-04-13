@@ -18,6 +18,16 @@ BAK="${OPENCLAW_HOME}/openclaw.json.bak.${TS}"
 TMP_ONEBOT="${OPENCLAW_HOME}/.onebot-channel.tmp.${TS}.json"
 INSTALLED_PKG_JSON="${EXT}/package.json"
 
+# ── 自动检测 CLI 命令（支持 BClaw 和 OpenClaw） ──
+if command -v bclaw >/dev/null 2>&1; then
+  CLI="bclaw"
+elif command -v openclaw >/dev/null 2>&1; then
+  CLI="openclaw"
+else
+  echo "未找到 bclaw 或 openclaw 命令，请先安装 BClaw 或 OpenClaw。"
+  exit 1
+fi
+
 step() { printf '[onebot-private-update] %s\n' "$*"; }
 
 cleanup_tmp() {
@@ -100,10 +110,7 @@ fs.writeFileSync(cfgPath, JSON.stringify(cfg, null, 2));
 NODE
 }
 
-if ! command -v openclaw >/dev/null 2>&1; then
-  echo "openclaw 命令不存在，请先安装 OpenClaw。"
-  exit 1
-fi
+step "使用 CLI: ${CLI}"
 
 if [ -f "${CFG}" ]; then
   step "备份配置 -> ${BAK}"
@@ -114,7 +121,9 @@ fi
 
 step "停止网关"
 pkill -f 'openclaw-gateway' >/dev/null 2>&1 || true
+pkill -f 'bclaw-gateway' >/dev/null 2>&1 || true
 pkill -f '[o]penclaw gateway' >/dev/null 2>&1 || true
+pkill -f '[b]claw gateway' >/dev/null 2>&1 || true
 
 step "临时清理冲突配置（安装后自动恢复）"
 sanitize_config_for_install
@@ -124,10 +133,9 @@ rm -rf "${EXT}"
 
 install_plugin() {
   if [ "${VER}" = "latest" ] || [ "${VER}" = "dev" ]; then
-    # OpenClaw 对预发布要求显式声明 tag 或版本，这里固定使用 dev tag
-    openclaw plugins install "${PKG}@dev"
+    "${CLI}" plugins install "${PKG}@dev"
   else
-    openclaw plugins install "${PKG}@${VER}"
+    "${CLI}" plugins install "${PKG}@${VER}"
   fi
 }
 
@@ -139,7 +147,7 @@ fi
 
 if ! install_plugin; then
   step "安装失败，尝试自动修复配置并重试"
-  openclaw doctor --fix || true
+  "${CLI}" doctor --fix || true
   install_plugin
 fi
 
@@ -150,9 +158,9 @@ step "同步插件安装元数据"
 sync_install_metadata
 
 step "启动网关"
-openclaw gateway start
+"${CLI}" gateway start
 
 step "当前状态"
-openclaw status || true
+"${CLI}" status || true
 
 step "私有更新完成（配置未改动，备份: ${BAK}）"
