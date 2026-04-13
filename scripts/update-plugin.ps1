@@ -22,6 +22,16 @@ $ResolvedVersion = $null
 $TarballUrl = $null
 $ExpectedSha256 = $null
 
+# ── 自动检测 CLI 命令（支持 BClaw 和 OpenClaw） ──
+$Cli = $null
+if (Get-Command bclaw -ErrorAction SilentlyContinue) {
+  $Cli = "bclaw"
+} elseif (Get-Command openclaw -ErrorAction SilentlyContinue) {
+  $Cli = "openclaw"
+} else {
+  throw "未找到 bclaw 或 openclaw 命令，请先安装 BClaw 或 OpenClaw。"
+}
+
 function Step([string]$Message) {
   Write-Host "[onebot-update] $Message"
 }
@@ -109,7 +119,7 @@ function Restore-OnebotConfig {
   if ($null -eq $cfgObj.plugins) {
     $cfgObj | Add-Member -NotePropertyName "plugins" -NotePropertyValue ([pscustomobject]@{})
   }
-  if ($null -eq $cfgObj.plugins.allow) {
+  if ($cfgObj.plugins.allow -isnot [System.Array]) {
     $cfgObj.plugins | Add-Member -NotePropertyName "allow" -NotePropertyValue @("bbot") -Force
   } else {
     $allow = @($cfgObj.plugins.allow)
@@ -160,13 +170,11 @@ function Sync-InstallMetadata {
 }
 
 function Install-Plugin {
-  & openclaw plugins install $TmpPkg
+  & $Cli plugins install $TmpPkg
 }
 
 try {
-  if (-not (Get-Command openclaw -ErrorAction SilentlyContinue)) {
-    throw "openclaw 命令不存在，请先安装 OpenClaw。"
-  }
+  Step "使用 CLI: $Cli"
 
   if (Test-Path -LiteralPath $Cfg) {
     Step "备份配置 -> $Bak"
@@ -177,6 +185,7 @@ try {
 
   Step "停止网关"
   Get-Process -Name "openclaw-gateway" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+  Get-Process -Name "bclaw-gateway" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
 
   Step "临时清理冲突配置（安装后自动恢复）"
   Sanitize-ConfigForInstall
@@ -193,7 +202,7 @@ try {
     Install-Plugin
   } catch {
     Step "安装失败，尝试自动修复配置并重试"
-    & openclaw doctor --fix | Out-Null
+    & $Cli doctor --fix | Out-Null
     Install-Plugin
   }
 
@@ -204,10 +213,10 @@ try {
   Sync-InstallMetadata
 
   Step "启动网关"
-  & openclaw gateway start
+  & $Cli gateway start
 
   Step "当前状态"
-  & openclaw status
+  & $Cli status
 
   Step "更新完成（配置未改动，备份: $Bak）"
 } finally {
