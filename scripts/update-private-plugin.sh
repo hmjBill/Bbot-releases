@@ -28,7 +28,8 @@ else
   exit 1
 fi
 
-step() { printf '[onebot-private-update] %s\n' "$*"; }
+step() { printf '[onebot-private-update] %s
+' "$*"; }
 
 cleanup_tmp() {
   rm -f "${TMP_ONEBOT}" >/dev/null 2>&1 || true
@@ -133,9 +134,9 @@ rm -rf "${EXT}"
 
 install_plugin() {
   if [ "${VER}" = "latest" ] || [ "${VER}" = "dev" ]; then
-    "${CLI}" plugins install "${PKG}@dev"
+    "${CLI}" plugins install "${PKG}@dev" --dangerously-force-unsafe-install
   else
-    "${CLI}" plugins install "${PKG}@${VER}"
+    "${CLI}" plugins install "${PKG}@${VER}" --dangerously-force-unsafe-install
   fi
 }
 
